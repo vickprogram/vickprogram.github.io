@@ -8,7 +8,7 @@
     body { display: flex; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; }
     #canvas-container { flex: 1; position: relative; }
     canvas { background: #fff; display: block; }
-    .slider-container { width: 300px; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+    .slider-container { width: 25%; max-width: 300px; padding: 20px; box-sizing: border-box; overflow-y: auto; }
     .slider { margin-bottom: 40px; }
     .label { margin-bottom: 5px; }
   </style>
@@ -36,17 +36,14 @@
     </div>
   </div>
 <script>
-// Constants
+// 基本參數
 const cols = 30, rows = 30;
 const rackCols = 14;
 const piecesPerRow = 5;
-const uiWidth = 300;
-
-// State
 let gridSize, rackWidth, gridWidth, gridHeight;
 let pVal = 3, qVal = 2, nVal = 4;
 
-// Canvas & UI refs
+// DOM
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const sliderP = document.getElementById('sliderP');
@@ -57,7 +54,7 @@ const qValEl = document.getElementById('qVal');
 const nValEl = document.getElementById('nVal');
 const areaValEl = document.getElementById('areaVal');
 
-// Polyomino class
+// Polyomino 類別
 class Polyomino {
   constructor(blocks, color) {
     this.blocks = blocks;
@@ -70,9 +67,7 @@ class Polyomino {
     ctx.fillStyle = this.color;
     ctx.strokeStyle = '#000';
     this.blocks.forEach(({x:bx, y:by}) => {
-      const px = this.pos.x < rackCols
-                   ? this.pos.x * gridSize
-                   : rackWidth + (this.pos.x - rackCols) * gridSize;
+      const px = this.pos.x < rackCols ? this.pos.x * gridSize : rackWidth + (this.pos.x - rackCols) * gridSize;
       const py = this.pos.y * gridSize;
       ctx.fillRect(px + bx*gridSize, py + by*gridSize, gridSize, gridSize);
       ctx.strokeRect(px + bx*gridSize, py + by*gridSize, gridSize, gridSize);
@@ -98,7 +93,7 @@ class Polyomino {
   }
 }
 
-// Functions
+// 生成 L 塊
 function createL(p,q) {
   const arr = [];
   for(let i=0;i<p;i++) arr.push({x:i,y:0});
@@ -119,6 +114,7 @@ function resetPieces() {
   }
 }
 
+// 計算包圍面積
 function computeEnclosedArea(){
   const grid = Array(rows).fill().map(()=>Array(cols).fill(0));
   polys.forEach(poly => poly.getCells().forEach(c => {
@@ -128,15 +124,37 @@ function computeEnclosedArea(){
   const vis = grid.map(r=>r.map(()=>false));
   const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
   const queue = [];
-  // border
-  for(let x=0;x<cols;x++){[[0,x],[rows-1,x]].forEach(([y,c])=>{ if(!grid[y][c]&&!vis[y][c]){vis[y][c]=true;queue.push([c,y]);}});}
-  for(let y=0;y<rows;y++){[[y,0],[y,cols-1]].forEach(([r,c])=>{ if(!grid[r][c]&&!vis[r][c]){vis[r][c]=true;queue.push([c,r]);}});}
-  while(queue.length){ const [cx,cy]=queue.shift(); dirs.forEach(([dx,dy])=>{ const nx=cx+dx, ny=cy+dy; if(nx>=0&&nx<cols&&ny>=0&&ny<rows&&!grid[ny][nx]&&!vis[ny][nx]){vis[ny][nx]=true;queue.push([nx,ny]);}}); }
-  return vis.flat().filter((v,i)=>!v && grid[Math.floor(i/cols)][i%cols]===0).length;
+  for(let x=0;x<cols;x++){
+    if(!grid[0][x]){ vis[0][x]=true; queue.push({x,y:0}); }
+    if(!grid[rows-1][x]){ vis[rows-1][x]=true; queue.push({x,y:rows-1}); }
+  }
+  for(let y=0;y<rows;y++){
+    if(!grid[y][0]){ vis[y][0]=true; queue.push({x:0,y}); }
+    if(!grid[y][cols-1]){ vis[y][cols-1]=true; queue.push({x:cols-1,y}); }
+  }
+  while(queue.length){const {x,y}=queue.shift();
+    dirs.forEach(([dx,dy])=>{const nx=x+dx, ny=y+dy;
+      if(nx>=0&&nx<cols&&ny>=0&&ny<rows&&!grid[ny][nx]&&!vis[ny][nx]){vis[ny][nx]=true;queue.push({x:nx,y:ny});}
+    });
+  }
+  let area=0;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(!vis[r][c] && !grid[r][c]) area++;
+  return area;
 }
 
-// Resize handler
+// 坐標轉換
+function getCellFromMouse(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const cellX = mx < rackWidth ? Math.floor(mx / gridSize) : rackCols + Math.floor((mx - rackWidth) / gridSize);
+  const cellY = Math.floor(my / gridSize);
+  return {cellX, cellY};
+}
+
+// 調整尺寸
 function resize(){
+  const uiWidth = document.querySelector('.slider-container').clientWidth;
   const w = window.innerWidth - uiWidth;
   const h = window.innerHeight;
   gridSize = Math.floor(Math.min(w/(rackCols+cols), h/rows));
@@ -146,61 +164,93 @@ function resize(){
   canvas.width = rackWidth + gridWidth;
   canvas.height = gridHeight;
 }
-window.addEventListener('resize', ()=>{ resize(); });
+window.addEventListener('resize', resize);
 resize();
 resetPieces();
 
-// Mouse events
+// 滑桿事件
+sliderP.addEventListener('input', ()=>{ pVal=+sliderP.value; pValEl.textContent=pVal; resetPieces(); });
+sliderQ.addEventListener('input', ()=>{ qVal=+sliderQ.value; qValEl.textContent=qVal; resetPieces(); });
+sliderN.addEventListener('input', ()=>{ nVal=+sliderN.value; nValEl.textContent=nVal; resetPieces(); });
+
+// 互動事件（含單雙擊延遲判定）
 let active=null;
+let moved=false;
+let clickTimer=null;
+const CLICK_DELAY=250;
 canvas.addEventListener('mousedown', e=>{
-  const rect=canvas.getBoundingClientRect();
-  const mx=e.clientX-rect.left;
-  const my=e.clientY-rect.top;
-  const cellX = mx<rackWidth? Math.floor(mx/gridSize): rackCols+Math.floor((mx-rackWidth)/gridSize);
-  const cellY = Math.floor(my/gridSize);
+  if(e.button!==0) return;
+  const {cellX,cellY}=getCellFromMouse(e);
   polys.forEach(poly=>{
-    if(poly.contains(cellX, cellY)){
-      if(e.button===0){ poly.dragging=true; active=poly; }
-      if(e.button===2) poly.rotate();
-      if(e.button===1) poly.flip();
+    if(poly.contains(cellX,cellY)){
+      poly.dragging=true; active=poly; moved=false;
     }
   });
 });
 canvas.addEventListener('mousemove', e=>{
   if(active&&active.dragging){
-    const rect=canvas.getBoundingClientRect();
-    const mx=e.clientX-rect.left;
-    const my=e.clientY-rect.top;
-    active.pos.x = mx<rackWidth? Math.floor(mx/gridSize): rackCols+Math.floor((mx-rackWidth)/gridSize);
-    active.pos.y = Math.floor(my/gridSize);
+    const {cellX,cellY}=getCellFromMouse(e);
+    if(cellX!==active.pos.x||cellY!==active.pos.y){ moved=true; active.pos.x=cellX; active.pos.y=cellY; }
   }
 });
-canvas.addEventListener('mouseup', ()=>{ if(active) active.dragging=false; active=null; });
-canvas.addEventListener('contextmenu', e=>e.preventDefault());
-
-// Main loop
-function loop(){
-  // update UI
-  if(pVal!==+sliderP.value||qVal!==+sliderQ.value||nVal!==+sliderN.value){
-    pVal=+sliderP.value; qVal=+sliderQ.value; nVal=+sliderN.value;
-    pValEl.textContent=pVal; qValEl.textContent=qVal; nValEl.textContent=nVal;
-    resetPieces();
+canvas.addEventListener('mouseup', ()=>{
+  if(active){ active.dragging=false;
+    polys.forEach(other=>{
+      if(other!==active) active.getCells().forEach(c=>other.getCells().forEach(o=>{
+        if(c.x===o.x&&c.y===o.y){
+          const dx=active.lastPos.x-other.lastPos.x;
+          const dy=active.lastPos.y-other.lastPos.y;
+          active.pos.x=active.lastPos.x + (dx?Math.sign(dx):0);
+          active.pos.y=active.lastPos.y + (!dx?Math.sign(dy):0);
+        }
+      }));
+    });
+    active.lastPos={...active.pos}; active=null;
   }
-  // collision revert
-  polys.forEach(poly=>{
-    const overlap = polys.some(o=>o!==poly && poly.getCells().some(c=>o.getCells().some(o2=>o2.x===c.x&&o2.y===c.y)));
-    if(overlap) poly.pos={...poly.lastPos}; else poly.lastPos={...poly.pos};
-  });
+});
+canvas.addEventListener('click', e=>{
+  if(moved) return;
+  clearTimeout(clickTimer);
+  clickTimer=setTimeout(()=>{
+    const {cellX,cellY}=getCellFromMouse(e);
+    polys.forEach(poly=>{ if(poly.contains(cellX,cellY)) poly.rotate(); });
+  }, CLICK_DELAY);
+});
+canvas.addEventListener('dblclick', e=>{
+  clearTimeout(clickTimer);
+  const {cellX,cellY}=getCellFromMouse(e);
+  polys.forEach(poly=>{ if(poly.contains(cellX,cellY)) poly.flip(); });
+});
 
+// 主繪製迴圈
+function loop(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  // draw rack+grid lines
-  ctx.strokeStyle='#ccc'; for(let x=0;x<=rackWidth;x+=gridSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,gridHeight);ctx.stroke();}
-  ctx.strokeStyle='#000'; for(let x=rackWidth;x<=rackWidth+gridWidth;x+=gridSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,gridHeight);ctx.stroke();}
-  for(let y=0;y<=gridHeight;y+=gridSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(rackWidth+gridWidth,y);ctx.stroke();}
-
-  polys.forEach(poly=>poly.draw());
-  areaValEl.textContent=computeEnclosedArea();
-
+  // 繪製 rack 區格線
+  ctx.strokeStyle = '#ccc';
+  for(let x=0; x<=rackWidth; x+=gridSize){
+    ctx.beginPath();
+    ctx.moveTo(x,0);
+    ctx.lineTo(x,gridHeight);
+    ctx.stroke();
+  }
+  // 繪製 grid 區格線
+  ctx.strokeStyle = '#000';
+  for(let x=rackWidth; x<=rackWidth+gridWidth; x+=gridSize){
+    ctx.beginPath();
+    ctx.moveTo(x,0);
+    ctx.lineTo(x,gridHeight);
+    ctx.stroke();
+  }
+  for(let y=0; y<=gridHeight; y+=gridSize){
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(rackWidth+gridWidth,y);
+    ctx.stroke();
+  }
+  // 繪製 polyomino
+  polys.forEach(poly => poly.draw());
+  // 更新包圍面積
+  areaValEl.textContent = computeEnclosedArea();
   requestAnimationFrame(loop);
 }
 loop();
