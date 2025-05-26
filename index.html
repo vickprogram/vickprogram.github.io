@@ -6,9 +6,9 @@
   <title>Polyomino Canvas (Responsive)</title>
   <style>
     :root {
-      --label-size: calc(1rem + 0.5vw);
-      --text-size: calc(0.9rem + 0.4vw);
-      --slider-height: calc(1.2em + 0.2vw);
+      --label-size: calc(0.8rem + 0.3vw);
+      --text-size: calc(0.7rem + 0.3vw);
+      --slider-height: calc(1em + 0.2vw);
     }
     body {
       display: flex;
@@ -29,16 +29,16 @@
     .slider-container {
       width: 120px;
       flex: none;
-      padding: 8px;
+      padding: 6px;
       box-sizing: border-box;
       overflow-y: auto;
       background: #f9f9f9;
     }
     .slider {
-      margin-bottom: 1.2em;
+      margin-bottom: 1em;
     }
     .label {
-      margin-bottom: 0.4em;
+      margin-bottom: 0.3em;
       font-size: var(--label-size);
       font-weight: bold;
     }
@@ -47,7 +47,7 @@
       height: var(--slider-height);
     }
     p {
-      margin: 0.4em 0;
+      margin: 0.3em 0;
       font-size: var(--text-size);
     }
   </style>
@@ -72,7 +72,7 @@
   </div>
 <script>
 const maxP = 6, maxQ = 6, maxN = 20;
-const rackCols = 8, fixedRows = 20, piecesPerRow = 5; // 將原本的30行減為20行以增大格子
+const rackCols = 8, fixedRows = 15, piecesPerRow = 5;
 let cols, rows;
 let gridSize, rackWidth, gridWidth, gridHeight;
 let pVal = 3, qVal = 2, nVal = 4;
