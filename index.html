@@ -167,11 +167,12 @@ function getCellFromEvent(e) {
   return {cellX, cellY};
 }
 
-// 調整畫布大小\ nfunction resize(){
+// 調整畫布大小
+function resize() {
   const uiWidth = document.querySelector('.slider-container').clientWidth;
   const w = window.innerWidth - uiWidth;
   const h = window.innerHeight;
-  gridSize = Math.floor(Math.min(w/(rackCols+cols), h/rows));
+  gridSize = Math.floor(Math.min(w / (rackCols+cols), h / rows));
   rackWidth = rackCols * gridSize;
   gridWidth = cols * gridSize;
   gridHeight = rows * gridSize;
@@ -187,7 +188,7 @@ sliderP.addEventListener('input', () => { pVal = +sliderP.value; pValEl.textCont
 sliderQ.addEventListener('input', () => { qVal = +sliderQ.value; qValEl.textContent = qVal; resetPieces(); });
 sliderN.addEventListener('input', () => { nVal = +sliderN.value; nValEl.textContent = nVal; resetPieces(); });
 
-// 互動事件 (Pointer Events) 
+// 互動事件 (Pointer Events)
 let active = null, moved = false;
 let lastTap = 0, clickTimer = null;
 const CLICK_DELAY = 250;
@@ -215,7 +216,7 @@ canvas.addEventListener('pointerup', e => {
   e.preventDefault();
   if(active){
     active.dragging = false;
-    // 碰撞回彈（保留原邏輯）
+    // 碰撞回彈
     polys.forEach(other => {
       if(other !== active){
         active.getCells().forEach(c => {
@@ -234,13 +235,13 @@ canvas.addEventListener('pointerup', e => {
     active = null;
   }
   // Tap/Double-Tap 判斷
-  const currentTime = new Date().getTime();
+  const currentTime = Date.now();
   const tapLen = currentTime - lastTap;
   const {cellX,cellY} = getCellFromEvent(e);
   if(!moved && tapLen < CLICK_DELAY && tapLen > 0){
     clearTimeout(clickTimer);
     polys.forEach(poly => { if(poly.contains(cellX,cellY)) poly.flip(); });
-  } else if(!moved) {
+  } else if(!moved){
     clickTimer = setTimeout(() => {
       polys.forEach(poly => { if(poly.contains(cellX,cellY)) poly.rotate(); });
     }, CLICK_DELAY);
@@ -250,32 +251,23 @@ canvas.addEventListener('pointerup', e => {
 
 // 主繪製迴圈
 function loop() {
-  ctx.clearRect(0, 0, canvas.width,	canvas.height);
-  // 繪製 rack 區格線
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // 繪製 rack 格線
   ctx.strokeStyle = '#ccc';
-  for(let x=0; x<=rackWidth; x+=gridSize) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, gridHeight);
-    ctx.stroke();
+  for(let x=0; x<=rackWidth; x+=gridSize){
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,gridHeight); ctx.stroke();
   }
-  // 繪製 grid 區格線
+  // 繪製 grid 格線
   ctx.strokeStyle = '#000';
-  for(let x=rackWidth; x<=rackWidth+gridWidth; x+=gridSize) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, gridHeight);
-    ctx.stroke();
+  for(let x=rackWidth; x<=rackWidth+gridWidth; x+=gridSize){
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,gridHeight); ctx.stroke();
   }
-  for(let y=0; y<=gridHeight; y+=gridSize) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(rackWidth+gridWidth, y);
-    ctx.stroke();
+  for(let y=0; y<=gridHeight; y+=gridSize){
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(rackWidth+gridWidth,y); ctx.stroke();
   }
-  // 繪製 polyomino
+  // 渲染 polyomino
   polys.forEach(poly => poly.draw());
-  // 更新包圍面積
+  // 更新面積
   areaValEl.textContent = computeEnclosedArea();
   requestAnimationFrame(loop);
 }
