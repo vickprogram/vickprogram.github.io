@@ -3,14 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Polyomino Canvas (Mobile)</title>
+  <title>Polyomino Canvas (Mobile Optimized)</title>
   <style>
     body { display: flex; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; }
     #canvas-container { flex: 1; position: relative; touch-action: none; }
     canvas { background: #fff; display: block; }
-    .slider-container { width: 25%; max-width: 300px; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-    .slider { margin-bottom: 40px; }
-    .label { margin-bottom: 5px; }
+    .slider-container {
+      width: 20%; max-width: 200px; padding: 10px;
+      box-sizing: border-box; overflow-y: auto;
+      transition: width 0.3s;
+    }
+    @media (max-width: 430px) {
+      /* iPhone16 and similar small screens */
+      .slider-container { width: 15%; max-width: 150px; padding: 8px; }
+      #canvas-container { flex: 1.2; }
+    }
+    .slider { margin-bottom: 30px; }
+    .label { margin-bottom: 4px; font-size: 14px; }
+    input[type=range] { width: 100%; }
   </style>
 </head>
 <body>
@@ -31,11 +41,23 @@
       <input type="range" id="sliderN" min="1" max="40" value="4">
     </div>
     <div>
-      <p>Enclosed Area: <span id="areaVal">0</span></p>
-      <p>Fully drag pieces into grid</p>
+      <p style="font-size:14px;">Enclosed Area: <span id="areaVal">0</span></p>
+      <p style="font-size:12px;">拖動並放置方塊至右側網格</p>
     </div>
   </div>
 <script>
+// 偵測小螢幕（iPhone16等）
+const isMobile = /iPhone|iPad|Android/.test(navigator.userAgent) || window.innerWidth <= 430;
+
+// 參數上限調整
+let maxP = isMobile ? 6 : 10;
+let maxQ = isMobile ? 6 : 10;
+let maxN = isMobile ? 20 : 40;
+
+document.getElementById('sliderP').max = maxP;
+document.getElementById('sliderQ').max = maxQ;
+document.getElementById('sliderN').max = maxN;
+
 // 基本參數
 const cols = 30, rows = 30;
 const rackCols = 14;
@@ -105,6 +127,9 @@ function createL(p, q) {
 let polys = [];
 function resetPieces() {
   polys = [];
+  nVal = Math.min(nVal, maxN);
+  pVal = Math.min(pVal, maxP);
+  qVal = Math.min(qVal, maxQ);
   for(let i=0; i<nVal; i++){
     const blocks = createL(pVal, qVal);
     const color = `rgb(${100+Math.random()*155},${100+Math.random()*155},${100+Math.random()*155})`;
@@ -173,6 +198,7 @@ function resize() {
   const w = window.innerWidth - uiWidth;
   const h = window.innerHeight;
   gridSize = Math.floor(Math.min(w / (rackCols+cols), h / rows));
+  if(isMobile) gridSize = Math.floor(gridSize * 1.3);  // 更大塊狀顯示
   rackWidth = rackCols * gridSize;
   gridWidth = cols * gridSize;
   gridHeight = rows * gridSize;
@@ -216,7 +242,6 @@ canvas.addEventListener('pointerup', e => {
   e.preventDefault();
   if(active){
     active.dragging = false;
-    // 碰撞回彈
     polys.forEach(other => {
       if(other !== active){
         active.getCells().forEach(c => {
@@ -234,7 +259,6 @@ canvas.addEventListener('pointerup', e => {
     active.lastPos = {...active.pos};
     active = null;
   }
-  // Tap/Double-Tap 判斷
   const currentTime = Date.now();
   const tapLen = currentTime - lastTap;
   const {cellX,cellY} = getCellFromEvent(e);
@@ -252,22 +276,12 @@ canvas.addEventListener('pointerup', e => {
 // 主繪製迴圈
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  // 繪製 rack 格線
   ctx.strokeStyle = '#ccc';
-  for(let x=0; x<=rackWidth; x+=gridSize){
-    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,gridHeight); ctx.stroke();
-  }
-  // 繪製 grid 格線
+  for(let x=0; x<=rackWidth; x+=gridSize){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,gridHeight); ctx.stroke(); }
   ctx.strokeStyle = '#000';
-  for(let x=rackWidth; x<=rackWidth+gridWidth; x+=gridSize){
-    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,gridHeight); ctx.stroke();
-  }
-  for(let y=0; y<=gridHeight; y+=gridSize){
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(rackWidth+gridWidth,y); ctx.stroke();
-  }
-  // 渲染 polyomino
+  for(let x=rackWidth; x<=rackWidth+gridWidth; x+=gridSize){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,gridHeight); ctx.stroke(); }
+  for(let y=0; y<=gridHeight; y+=gridSize){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(rackWidth+gridWidth,y); ctx.stroke(); }
   polys.forEach(poly => poly.draw());
-  // 更新面積
   areaValEl.textContent = computeEnclosedArea();
   requestAnimationFrame(loop);
 }
