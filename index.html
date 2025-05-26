@@ -3,61 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Polyomino Canvas (Optimized)</title>
+  <title>Polyomino Canvas (Responsive)</title>
   <style>
-    body { display: flex; margin: 0; font-family: sans-serif; height: 100vh; overflow: hidden; }
-    #canvas-container { flex: 2; position: relative; touch-action: none; }
-    canvas { background: #fff; display: block; }
-    .slider-container {
-      flex: 1; max-width: 300px; padding: 15px;
-      box-sizing: border-box; overflow-y: auto;
-      transition: width 0.3s;
+    :root {
+      --label-size: calc(16px + 0.5vw);
+      --text-size: calc(14px + 0.5vw);
+      --slider-height: calc(18px + 0.3vw);
     }
-    .slider { margin-bottom: 30px; }
-    .label { margin-bottom: 5px; font-size: 16px; }
-    input[type=range] { width: 100%; }
-    p { margin: 5px 0; font-size: 14px; }
+    body {
+      display: flex;
+      margin: 0;
+      font-family: sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #canvas-container {
+      flex: 3;
+      position: relative;
+      touch-action: none;
+    }
+    canvas {
+      background: #fff;
+      display: block;
+    }
+    .slider-container {
+      flex: 0.5;
+      max-width: 140px;
+      padding: 10px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      background: #f9f9f9;
+    }
+    .slider {
+      margin-bottom: 1.5em;
+    }
+    .label {
+      margin-bottom: 0.5em;
+      font-size: var(--label-size);
+      font-weight: bold;
+    }
+    input[type=range] {
+      width: 100%;
+      height: var(--slider-height);
+    }
+    p {
+      margin: 0.5em 0;
+      font-size: var(--text-size);
+    }
   </style>
 </head>
 <body>
-  <div id="canvas-container">
-    <canvas id="gameCanvas"></canvas>
-  </div>
+  <div id="canvas-container"><canvas id="gameCanvas"></canvas></div>
   <div class="slider-container">
-    <div class="slider">
-      <div class="label">p (hor leg): <span id="pVal">3</span></div>
-      <input type="range" id="sliderP" min="2" max="6" value="3">
-    </div>
-    <div class="slider">
-      <div class="label">q (ver leg): <span id="qVal">2</span></div>
-      <input type="range" id="sliderQ" min="2" max="6" value="2">
-    </div>
-    <div class="slider">
-      <div class="label">Pieces: <span id="nVal">4</span></div>
-      <input type="range" id="sliderN" min="1" max="20" value="4">
-    </div>
-    <div>
-      <p>Enclosed Area: <span id="areaVal">0</span></p>
-      <p>拖動並放置方塊至右側網格</p>
-    </div>
+    <div class="slider"><div class="label">p: <span id="pVal">3</span></div><input type="range" id="sliderP" min="2" max="6" value="3"></div>
+    <div class="slider"><div class="label">q: <span id="qVal">2</span></div><input type="range" id="sliderQ" min="2" max="6" value="2"></div>
+    <div class="slider"><div class="label">Pieces: <span id="nVal">4</span></div><input type="range" id="sliderN" min="1" max="20" value="4"></div>
+    <p>Enclosed Area: <span id="areaVal">0</span></p>
+    <p>拖動並放置方塊至網格</p>
   </div>
 <script>
-// 全裝置優化：統一限制 p,q, n
 const maxP = 6, maxQ = 6, maxN = 20;
-document.getElementById('sliderP').max = maxP;
-document.getElementById('sliderQ').max = maxQ;
-document.getElementById('sliderN').max = maxN;
-
-// 基本參數
-const cols = 30, rows = 30;
-const rackCols = 8;
-const piecesPerRow = 5;
+let cols, rows;
+const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+const rackCols = 8, piecesPerRow = 5;
 let gridSize, rackWidth, gridWidth, gridHeight;
 let pVal = 3, qVal = 2, nVal = 4;
 
-// DOM
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
 const sliderP = document.getElementById('sliderP');
 const sliderQ = document.getElementById('sliderQ');
 const sliderN = document.getElementById('sliderN');
@@ -66,42 +77,234 @@ const qValEl = document.getElementById('qVal');
 const nValEl = document.getElementById('nVal');
 const areaValEl = document.getElementById('areaVal');
 
-// Polyomino 類別
-class Polyomino { /* same as before */
-  constructor(blocks, color) { this.blocks = blocks; this.color = color; this.pos={x:0,y:0}; this.lastPos={...this.pos}; this.dragging=false; }
-  draw(){ ctx.fillStyle=this.color; ctx.strokeStyle='#000'; this.blocks.forEach(({x:bx,y:by})=>{const px=this.pos.x<rackCols?this.pos.x*gridSize:rackWidth+(this.pos.x-rackCols)*gridSize; const py=this.pos.y*gridSize; ctx.fillRect(px+bx*gridSize,py+by*gridSize,gridSize,gridSize); ctx.strokeRect(px+bx*gridSize,py+by*gridSize,gridSize,gridSize); }); }
-  contains(x,y){ return this.blocks.some(({x:bx,y:by})=>bx+this.pos.x===x&&by+this.pos.y===y); }
-  rotate(){ let nb=this.blocks.map(({x,y})=>({x:y,y:-x})); const minX=Math.min(...nb.map(b=>b.x)), minY=Math.min(...nb.map(b=>b.y)); this.blocks=nb.map(b=>({x:b.x-minX,y:b.y-minY})); }
-  flip(){ let nb=this.blocks.map(({x,y})=>({x:-x,y})); const minX=Math.min(...nb.map(b=>b.x)), minY=Math.min(...nb.map(b=>b.y)); this.blocks=nb.map(b=>({x:b.x-minX,y:b.y-minY})); }
-  getCells(){ return this.blocks.map(({x,y})=>({x:this.pos.x+x,y:this.pos.y+y})); }
+class Polyomino {
+  constructor(blocks, color) {
+    this.blocks = blocks;
+    this.color = color;
+    this.pos = { x: 0, y: 0 };
+    this.lastPos = { ...this.pos };
+    this.dragging = false;
+  }
+  draw() {
+    ctx.fillStyle = this.color;
+    ctx.strokeStyle = '#000';
+    this.blocks.forEach(({ x: bx, y: by }) => {
+      const px = this.pos.x < rackCols ? this.pos.x * gridSize : rackWidth + (this.pos.x - rackCols) * gridSize;
+      const py = this.pos.y * gridSize;
+      ctx.fillRect(px + bx * gridSize, py + by * gridSize, gridSize, gridSize);
+      ctx.strokeRect(px + bx * gridSize, py + by * gridSize, gridSize, gridSize);
+    });
+  }
+  contains(x, y) {
+    return this.blocks.some(({ x: bx, y: by }) => bx + this.pos.x === x && by + this.pos.y === y);
+  }
+  rotate() {
+    let nb = this.blocks.map(({ x, y }) => ({ x: y, y: -x }));
+    const minX = Math.min(...nb.map(b => b.x));
+    const minY = Math.min(...nb.map(b => b.y));
+    this.blocks = nb.map(b => ({ x: b.x - minX, y: b.y - minY }));
+  }
+  flip() {
+    let nb = this.blocks.map(({ x, y }) => ({ x: -x, y }));
+    const minX = Math.min(...nb.map(b => b.x));
+    const minY = Math.min(...nb.map(b => b.y));
+    this.blocks = nb.map(b => ({ x: b.x - minX, y: b.y - minY }));
+  }
+  getCells() {
+    return this.blocks.map(({ x, y }) => ({ x: this.pos.x + x, y: this.pos.y + y }));
+  }
 }
 
-// 生成 L 塊
-function createL(p,q){ const a=[]; for(let i=0;i<p;i++) a.push({x:i,y:0}); for(let j=1;j<q;j++) a.push({x:0,y:j}); return a; }
+function createL(p, q) {
+  const a = [];
+  for (let i = 0; i < p; i++) a.push({ x: i, y: 0 });
+  for (let j = 1; j < q; j++) a.push({ x: 0, y: j });
+  return a;
+}
 
-// 重設拼圖塊
-let polys=[];
-function resetPieces(){ polys=[]; nVal=Math.min(nVal,maxN); pVal=Math.min(pVal,maxP); qVal=Math.min(qVal,maxQ); for(let i=0;i<nVal;i++){ const blocks=createL(pVal,qVal); const color=`rgb(${100+Math.random()*155},${100+Math.random()*155},${100+Math.random()*155})`; const poly=new Polyomino(blocks,color); poly.pos={x:i%piecesPerRow,y:Math.floor(i/piecesPerRow)}; poly.lastPos={...poly.pos}; polys.push(poly); } }
+let polys = [];
+function resetPieces() {
+  polys = [];
+  nVal = Math.min(nVal, maxN);
+  pVal = Math.min(pVal, maxP);
+  qVal = Math.min(qVal, maxQ);
+  for (let i = 0; i < nVal; i++) {
+    const blocks = createL(pVal, qVal);
+    const color = `rgb(${100 + Math.random() * 155},${100 + Math.random() * 155},${100 + Math.random() * 155})`;
+    const poly = new Polyomino(blocks, color);
+    poly.pos = { x: i % piecesPerRow, y: Math.floor(i / piecesPerRow) };
+    poly.lastPos = { ...poly.pos };
+    polys.push(poly);
+  }
+}
 
-// 計算面積 同前
-function computeEnclosedArea(){ const grid=Array(rows).fill().map(()=>Array(cols).fill(0)); polys.forEach(poly=>poly.getCells().forEach(c=>{ if(c.x>=rackCols&&c.x<rackCols+cols&&c.y>=0&&c.y<rows) grid[c.y][c.x-rackCols]=1;})); const vis=grid.map(r=>r.map(()=>false)), dirs=[[1,0],[-1,0],[0,1],[0,-1]],queue=[]; for(let x=0;x<cols;x++){ if(!grid[0][x]){vis[0][x]=true;queue.push({x,y:0});} if(!grid[rows-1][x]){vis[rows-1][x]=true;queue.push({x,y:rows-1});}} for(let y=0;y<rows;y++){ if(!grid[y][0]){vis[y][0]=true;queue.push({x:0,y});} if(!grid[y][cols-1]){vis[y][cols-1]=true;queue.push({x:cols-1,y});}} while(queue.length){const {x,y}=queue.shift();dirs.forEach(([dx,dy])=>{const nx=x+dx,ny=y+dy; if(nx>=0&&nx<cols&&ny>=0&&ny<rows&&!grid[ny][nx]&&!vis[ny][nx]){vis[ny][nx]=true;queue.push({x:nx,y:ny});}});} let a=0; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(!vis[r][c]&&!grid[r][c]) a++; return a; }
+function computeEnclosedArea() {
+  const grid = Array.from({ length: rows }, () => Array(cols).fill(0));
+  polys.forEach(poly => poly.getCells().forEach(({ x, y }) => {
+    if (x >= rackCols && x < rackCols + cols && y >= 0 && y < rows) grid[y][x - rackCols] = 1;
+  }));
+  const vis = grid.map(r => r.map(() => false));
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const q = [];
+  for (let x = 0; x < cols; x++) {
+    if (!grid[0][x]) { vis[0][x] = true; q.push({ x, y: 0 }); }
+    if (!grid[rows - 1][x]) { vis[rows - 1][x] = true; q.push({ x, y: rows - 1 }); }
+  }
+  for (let y = 0; y < rows; y++) {
+    if (!grid[y][0]) { vis[y][0] = true; q.push({ x: 0, y }); }
+    if (!grid[y][cols - 1]) { vis[y][cols - 1] = true; q.push({ x: cols - 1, y }); }
+  }
+  while (q.length) {
+    const { x, y } = q.shift();
+    dirs.forEach(([dx, dy]) => {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !grid[ny][nx] && !vis[ny][nx]) {
+        vis[ny][nx] = true;
+        q.push({ x: nx, y: ny });
+      }
+    });
+  }
+  let a = 0;
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if (!vis[r][c] && !grid[r][c]) a++;
+  return a;
+}
 
-// 事件座標 同前
-function getCellFromEvent(e){ let cx,cy; if(e.touches&&e.touches[0]){cx=e.touches[0].clientX;cy=e.touches[0].clientY;}else{cx=e.clientX;cy=e.clientY;} const rect=canvas.getBoundingClientRect(), mx=cx-rect.left, my=cy-rect.top, cellX=mx<rackWidth?Math.floor(mx/gridSize):rackCols+Math.floor((mx-rackWidth)/gridSize), cellY=Math.floor(my/gridSize); return {cellX,cellY}; }
+function getCellFromEvent(e) {
+  let cx, cy;
+  if (e.touches && e.touches[0]) {
+    cx = e.touches[0].clientX;
+    cy = e.touches[0].clientY;
+  } else {
+    cx = e.clientX;
+    cy = e.clientY;
+  }
+  const r = canvas.getBoundingClientRect();
+  const mx = cx - r.left, my = cy - r.top;
+  const cellX = mx < rackWidth ? Math.floor(mx / gridSize) : rackCols + Math.floor((mx - rackWidth) / gridSize);
+  const cellY = Math.floor(my / gridSize);
+  return { cellX, cellY };
+}
 
-// 調整畫布 大幅放大格子
-function resize(){ const uiW=document.querySelector('.slider-container').clientWidth, w=window.innerWidth-uiW, h=window.innerHeight; gridSize=Math.floor(Math.min(w/(rackCols+cols),h/rows)*1.3); rackWidth=rackCols*gridSize; gridWidth=cols*gridSize; gridHeight=rows*gridSize; canvas.width=rackWidth+gridWidth; canvas.height=gridHeight; }
-window.addEventListener('resize',resize); resize(); resetPieces();
+function resize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  gridSize = Math.floor(Math.min(w / 15, h / 12));
+  cols = Math.floor((w * 0.6) / gridSize) - rackCols;
+  rows = Math.floor(h / gridSize);
+  rackWidth = rackCols * gridSize;
+  gridWidth = cols * gridSize;
+  gridHeight = rows * gridSize;
+  canvas.width = rackWidth + gridWidth;
+  canvas.height = gridHeight;
+  resetPieces();
+}
 
-// 滑桿及互動 維持原狀
-[sliderP,sliderQ,sliderN].forEach(sl=>sl.addEventListener('input',()=>{pVal=+sliderP.value;qVal=+sliderQ.value;nVal=+sliderN.value;pValEl.textContent=pVal;qValEl.textContent=qVal;nValEl.textContent=nVal;resetPieces();}));
-let active=null,moved=false,lastTap=0,clickTimer=null;const CLICK_DELAY=250;
-canvas.addEventListener('pointerdown',e=>{e.preventDefault();moved=false;const {cellX,cellY}=getCellFromEvent(e);polys.forEach(poly=>{if(poly.contains(cellX,cellY)){poly.dragging=true;active=poly;}});});
-canvas.addEventListener('pointermove',e=>{if(active&&active.dragging){moved=true;const {cellX,cellY}=getCellFromEvent(e);if(cellX!==active.pos.x||cellY!==active.pos.y){active.pos.x=cellX;active.pos.y=cellY;}}});
-canvas.addEventListener('pointerup',e=>{e.preventDefault();if(active){active.dragging=false;polys.forEach(other=>{if(other!==active){active.getCells().forEach(c=>{other.getCells().forEach(o=>{if(c.x===o.x&&c.y===o.y){const dx=active.lastPos.x-other.lastPos.x,dy=active.lastPos.y-other.lastPos.y;active.pos.x=active.lastPos.x+(dx?Math.sign(dx):0);active.pos.y=active.lastPos.y+(!dx?Math.sign(dy):0);}});});}});active.lastPos={...active.pos};active=null;}const now=Date.now(),tapLen=now-lastTap;const {cellX,cellY}=getCellFromEvent(e);if(!moved&&tapLen<CLICK_DELAY&&tapLen>0){clearTimeout(clickTimer);polys.forEach(poly=>{if(poly.contains(cellX,cellY))poly.flip();});}else if(!moved){clickTimer=setTimeout(()=>{polys.forEach(poly=>{if(poly.contains(cellX,cellY))poly.rotate();});},CLICK_DELAY);}lastTap=now;});
+window.addEventListener('resize', resize);
+resize();
 
-// 主繪製迴圈
-function loop(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#ccc';for(let x=0;x<=rackWidth;x+=gridSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,gridHeight);ctx.stroke();}ctx.strokeStyle='#000';for(let x=rackWidth;x<=rackWidth+gridWidth;x+=gridSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,gridHeight);ctx.stroke();}for(let y=0;y<=gridHeight;y+=gridSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(rackWidth+gridWidth,y);ctx.stroke();}polys.forEach(poly=>poly.draw());areaValEl.textContent=computeEnclosedArea();requestAnimationFrame(loop);}loop();
+[sliderP, sliderQ, sliderN].forEach(sl => sl.addEventListener('input', () => {
+  pVal = +sliderP.value;
+  qVal = +sliderQ.value;
+  nVal = +sliderN.value;
+  pValEl.textContent = pVal;
+  qValEl.textContent = qVal;
+  nValEl.textContent = nVal;
+  resetPieces();
+}));
+
+let active = null, moved = false, lastTap = 0, clickTimer = null;
+const CLICK_DELAY = 250;
+
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  moved = false;
+  const { cellX, cellY } = getCellFromEvent(e);
+  polys.forEach(poly => {
+    if (poly.contains(cellX, cellY)) {
+      poly.dragging = true;
+      active = poly;
+    }
+  });
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (active && active.dragging) {
+    moved = true;
+    const { cellX, cellY } = getCellFromEvent(e);
+    if (cellX !== active.pos.x || cellY !== active.pos.y) {
+      active.pos.x = cellX;
+      active.pos.y = cellY;
+    }
+  }
+});
+
+canvas.addEventListener('pointerup', e => {
+  e.preventDefault();
+  if (active) {
+    active.dragging = false;
+    polys.forEach(other => {
+      if (other !== active) {
+        active.getCells().forEach(c => {
+          other.getCells().forEach(o => {
+            if (c.x === o.x && c.y === o.y) {
+              const dx = active.lastPos.x - other.lastPos.x;
+              const dy = active.lastPos.y - other.lastPos.y;
+              active.pos.x = active.lastPos.x + (dx ? Math.sign(dx) : 0);
+              active.pos.y = active.lastPos.y + (!dx ? Math.sign(dy) : 0);
+            }
+          });
+        });
+      }
+    });
+    active.lastPos = { ...active.pos };
+    active = null;
+  }
+  const now = Date.now(), tapLen = now - lastTap;
+  const { cellX, cellY } = getCellFromEvent(e);
+  if (!moved && tapLen < CLICK_DELAY && tapLen > 0) {
+    clearTimeout(clickTimer);
+    polys.forEach(poly => {
+      if (poly.contains(cellX, cellY)) poly.flip();
+    });
+  } else if (!moved) {
+    clickTimer = setTimeout(() => {
+      polys.forEach(poly => {
+        if (poly.contains(cellX, cellY)) poly.rotate();
+      });
+    }, CLICK_DELAY);
+  }
+  lastTap = now;
+});
+
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#ccc';
+  for (let x = 0; x <= rackWidth; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, gridHeight);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#000';
+  for (let x = rackWidth; x <= rackWidth + gridWidth; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, gridHeight);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= gridHeight; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(rackWidth + gridWidth, y);
+    ctx.stroke();
+  }
+  polys.forEach(poly => poly.draw());
+  areaValEl.textContent = computeEnclosedArea();
+  requestAnimationFrame(loop);
+}
+loop();
 </script>
 </body>
 </html>
